@@ -36,7 +36,13 @@ fn run() -> Result<()> {
     let func_name = positional.first().map(|s| s.as_str()).unwrap_or("_start");
     let func_args: Vec<i32> = positional[1..].iter().filter_map(|a| a.parse().ok()).collect();
 
-    let engine = Engine::default();
+    // Use Pulley interpreter for async execution. Cranelift's native x86_64
+    // trampoline for void functions crashes on fiber stacks with libcall traps
+    // (has_native_signals = false). Pulley handles traps in software, avoiding
+    // the interaction entirely.
+    let mut config = Config::new();
+    config.target("pulley64")?;
+    let engine = Engine::new(&config)?;
     let module = Module::from_file(&engine, file)?;
 
     // Set up WASI context
