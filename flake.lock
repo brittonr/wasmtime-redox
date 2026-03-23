@@ -1,0 +1,45 @@
+{
+  "nodes": {
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1774106199,
+        "narHash": "sha256-US5Tda2sKmjrg2lNHQL3jRQ6p96cgfWh3J1QBliQ8Ws=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "6c9a78c09ff4d6c21d0319114873508a6ec01655",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "root": {
+      "inputs": {
+        "nixpkgs": "nixpkgs",
+        "wasmtime-src": "wasmtime-src"
+      }
+    },
+    "wasmtime-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1773985178,
+        "narHash": "sha256-Mo+vNPxGprgjSRTw9LuZc3ms0DjCJyPG879wEasJzMA=",
+        "owner": "bytecodealliance",
+        "repo": "wasmtime",
+        "rev": "be23469ece57c0be64904f12111c8d808b0ce4ac",
+        "type": "github"
+      },
+      "original": {
+        "owner": "bytecodealliance",
+        "ref": "v43.0.0",
+        "repo": "wasmtime",
+        "type": "github"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}

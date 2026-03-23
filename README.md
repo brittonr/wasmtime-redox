@@ -6,6 +6,20 @@ Uses Wasmtime's **Pulley interpreter** backend and **custom platform API** to
 run on Redox without depending on `ucontext_t`, `sigaltstack`, or signal-based
 trap handling.
 
+## Quick start
+
+```bash
+# Run the demo (compiles hello.wat to Pulley bytecode, runs it)
+nix run github:brittonr/wasmtime-redox
+
+# Build precompiled Pulley bytecode modules
+nix build github:brittonr/wasmtime-redox
+
+# Enter a devshell with wasmtime and wabt tools
+nix develop github:brittonr/wasmtime-redox
+wasmtime compile --target pulley64 examples/hello.wat -o hello.cwasm
+```
+
 ## Architecture
 
 Redox is `cfg(unix)` but lacks the signal context types that Wasmtime's unix
@@ -37,6 +51,9 @@ registration is needed.
 
 ## Usage from the Redox flake
 
+The cross-compiled Redox binary requires the full Redox toolchain (relibc,
+cross-compiler, sysroot). Consume it from your Redox flake:
+
 ```nix
 # flake.nix inputs
 wasmtime-redox = {
@@ -45,9 +62,7 @@ wasmtime-redox = {
 };
 
 # In packages.nix
-wasmtime-redox = inputs.wasmtime-redox.lib.mkWasmtime {
-  inherit mkUserspace pkgs lib redoxTarget relibc;
-};
+wasmtime-redox = inputs.wasmtime-redox.lib.mkWasmtime standaloneCommon;
 ```
 
 ## Files
@@ -64,3 +79,7 @@ wasmtime-redox = inputs.wasmtime-redox.lib.mkWasmtime {
 
 Pinned to **v43.0.0** via flake input. The vendor hash and patches are
 version-specific — bumping requires updating both.
+
+## License
+
+Apache-2.0
