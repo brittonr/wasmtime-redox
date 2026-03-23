@@ -56,8 +56,8 @@ All three execution paths are tested in a Redox VM via `wasm-runner` and
 | Linear memory (mmap platform) | ✅ | store/load across page boundaries |
 | Control flow (loops, branches) | ✅ | GCD computation with `--invoke` |
 | Async/fiber function calls | ✅ | `wasm-async-runner` with typed args, fiber context switching |
-| Precompiled cwasm roundtrip | ❌ | Engine tunable mismatch between CLI and API |
-| Async void calls | ❌ | `()→()` fiber calls crash; typed calls work |
+| Precompiled cwasm roundtrip | ✅ | `--roundtrip` flag: compile → serialize → deserialize → run |
+| Async void calls | ❌ | `()→()` fiber calls crash (SIGSEGV); typed returns work |
 
 On x86_64 Redox, `Engine::default()` compiles to **native x86_64** via
 Cranelift (not Pulley) because `has_host_compiler_backend = true`. Traps use

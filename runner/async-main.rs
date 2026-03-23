@@ -3,11 +3,6 @@
 //! Exercises wasmtime's fiber-based async support without tokio.
 //! Uses a manual executor (poll loop) since Redox doesn't need tokio.
 //!
-//! Tests:
-//!   1. Create an engine + store
-//!   2. Load a module, instantiate it via new_async (fiber context switch)
-//!   3. Call a function via call_async (fiber context switch)
-//!
 //! Usage:
 //!   wasm-async-runner <file.wat|file.wasm> [func_name [arg1 arg2]]
 
@@ -15,7 +10,8 @@ use wasmtime::*;
 
 fn main() {
     if let Err(e) = run() {
-        eprintln!("error: {e:?}");
+        // Print errors to STDOUT so ion shell captures them
+        println!("ERROR: {e:?}");
         std::process::exit(1);
     }
 }
@@ -23,7 +19,7 @@ fn main() {
 fn run() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 {
-        eprintln!("usage: wasm-async-runner <file> [func [arg1 arg2]]");
+        println!("usage: wasm-async-runner <file> [func [arg1 arg2]]");
         std::process::exit(2);
     }
 
@@ -36,29 +32,36 @@ fn run() -> Result<()> {
 
     let mut store = Store::new(&engine, ());
 
-    // Instantiate via async (exercises fiber context switching)
+    // Async instantiation — exercises fiber context switching
     let instance = block_on(Instance::new_async(&mut store, &module, &[]))?;
 
-    if func_args.len() == 2 {
-        let f = instance.get_typed_func::<(i32, i32), i32>(&mut store, func_name)?;
-        let result = block_on(f.call_async(&mut store, (func_args[0], func_args[1])))?;
-        println!("{result}");
-    } else if func_args.len() == 1 {
-        let f = instance.get_typed_func::<(i32,), i32>(&mut store, func_name)?;
-        let result = block_on(f.call_async(&mut store, (func_args[0],)))?;
-        println!("{result}");
-    } else {
-        // Try () -> () first (_start), fall back to () -> i32
-        match instance.get_typed_func::<(), ()>(&mut store, func_name) {
-            Ok(f) => {
-                block_on(f.call_async(&mut store, ()))?;
-                println!("OK");
+    match func_args.len() {
+        0 => {
+            match instance.get_typed_func::<(), ()>(&mut store, func_name) {
+                Ok(f) => {
+                    block_on(f.call_async(&mut store, ()))?;
+                    println!("OK");
+                }
+                Err(_) => {
+                    let f = instance.get_typed_func::<(), i32>(&mut store, func_name)?;
+                    let result = block_on(f.call_async(&mut store, ()))?;
+                    println!("{result}");
+                }
             }
-            Err(_) => {
-                let f = instance.get_typed_func::<(), i32>(&mut store, func_name)?;
-                let result = block_on(f.call_async(&mut store, ()))?;
-                println!("{result}");
-            }
+        }
+        1 => {
+            let f = instance.get_typed_func::<(i32,), i32>(&mut store, func_name)?;
+            let result = block_on(f.call_async(&mut store, (func_args[0],)))?;
+            println!("{result}");
+        }
+        2 => {
+            let f = instance.get_typed_func::<(i32, i32), i32>(&mut store, func_name)?;
+            let result = block_on(f.call_async(&mut store, (func_args[0], func_args[1])))?;
+            println!("{result}");
+        }
+        _ => {
+            println!("ERROR: unsupported arg count (max 2 i32 args)");
+            std::process::exit(2);
         }
     }
 
