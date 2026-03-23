@@ -38,6 +38,7 @@ let
   platformC = "${selfSrc}/platform/wasmtime-platform-redox.c";
   runnerSrc = "${selfSrc}/runner/main.rs";
   asyncRunnerSrc = "${selfSrc}/runner/async-main.rs";
+  wasiSrc = "${selfSrc}/runner/wasi/mod.rs";
 
   wasmtimePlatformLib = pkgs.stdenv.mkDerivation {
     pname = "wasmtime-platform-redox-lib";
@@ -84,9 +85,11 @@ mkUserspace.mkPackage {
   '';
 
   postConfigure = ''
-    # Inject runner binaries into the wasmtime-cli crate
+    # Inject runner binaries and WASI shim into the wasmtime-cli crate
     cp ${runnerSrc} src/bin/wasm-runner.rs
     cp ${asyncRunnerSrc} src/bin/wasm-async-runner.rs
+    mkdir -p src/bin/wasi
+    cp ${wasiSrc} src/bin/wasi/mod.rs
 
     cat >> Cargo.toml << 'EXTRA_BINS'
 

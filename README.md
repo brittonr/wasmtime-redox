@@ -41,11 +41,35 @@ registration is needed.
 - `wasmtime compile` — compile `.wat`/`.wasm` to Pulley bytecode (`.cwasm`)
 - Cranelift code generation targeting Pulley
 - Runtime module loading and execution via Pulley interpreter
+- WASI preview 1 (stdout, args, env, clocks, random — see below)
 - 15 MB statically linked binary, 33s build
+
+## WASI support
+
+The runners include a minimal WASI preview 1 shim (`runner/wasi.rs`) that
+implements the most common host imports without pulling in `wasmtime-wasi`,
+`cap-std`, or `tokio`. Uses raw libc calls through relibc.
+
+| WASI function | Status | Implementation |
+|---------------|--------|----------------|
+| `fd_write` (stdout/stderr) | ✅ | Direct write via `std::io::stdout/stderr` |
+| `args_get` / `args_sizes_get` | ✅ | Forwarded from host process args |
+| `environ_get` / `environ_sizes_get` | ✅ | Configurable env vars |
+| `clock_time_get` | ✅ | Monotonic + realtime via `std::time` |
+| `proc_exit` | ✅ | Typed trap caught by runner |
+| `random_get` | ✅ | `/dev/urandom` |
+| `sched_yield` | ✅ | `std::thread::yield_now` |
+| `fd_fdstat_get` | ✅ | Returns CHARACTER_DEVICE for stdio fds |
+| `fd_prestat_get` | ✅ | Returns BADF (no preopened dirs) |
+| `fd_close` (stdio) | ✅ | Returns success for fds 0–2 |
+| `fd_read`, filesystem, sockets | ⬚ | Stubs return ENOSYS |
+
+Modules that import stubbed functions can still instantiate — they only fail
+if the code path is actually reached at runtime.
 
 ## Tested on Redox
 
-All three execution paths are tested in a Redox VM via `wasm-runner` and
+All execution paths are tested in a Redox VM via `wasm-runner` and
 `wasm-async-runner` (minimal binaries injected into the wasmtime build):
 
 | Capability | Status | Notes |
@@ -57,6 +81,9 @@ All three execution paths are tested in a Redox VM via `wasm-runner` and
 | Control flow (loops, branches) | ✅ | GCD computation with `--invoke` |
 | Async/fiber function calls | ✅ | `wasm-async-runner` with typed args, fiber context switching |
 | Precompiled cwasm roundtrip | ✅ | `--roundtrip` flag: compile → serialize → deserialize → run |
+| WASI fd_write | ✅ | `hello-wasi.wat` — iovec write to stdout, nwritten verified |
+| WASI args | ✅ | `args-wasi.wat` — args_sizes_get returns errno 0 |
+| WASI clock | ✅ | `clock-wasi.wat` — monotonic clock t2 ≥ t1 |
 | Async void calls | ❌ | `()→()` fiber calls crash (SIGSEGV); typed returns work |
 
 On x86_64 Redox, `Engine::default()` compiles to **native x86_64** via
@@ -67,7 +94,7 @@ handlers needed.
 ## Not built
 
 - **`wasmtime run` CLI** — the upstream `run` feature bundles tokio + WASI as
-  compile-time deps. A minimal runner (`wasm-runner`) is provided instead.
+  compile-time deps. The runners provide WASI via a lightweight shim instead.
 
 ## Usage from the Redox flake
 
@@ -91,9 +118,15 @@ wasmtime-redox = inputs.wasmtime-redox.lib.mkWasmtime standaloneCommon;
 |------|-------------|
 | `patches/0001-redox-custom-platform.patch` | Routes Redox to custom sys module |
 | `platform/wasmtime-platform-redox.c` | mmap/mprotect/tls symbols for Redox |
+| `runner/wasi/mod.rs` | WASI preview 1 shim (fd_write, args, env, clock, random) |
+| `runner/main.rs` | Sync runner with WASI + Linker |
+| `runner/async-main.rs` | Async/fiber runner with WASI + Linker |
 | `nix/package.nix` | Nix cross-compilation package |
 | `nix/precompile.nix` | Host-side .wat → .cwasm precompilation |
-| `examples/hello.wat` | Minimal test module (i32.add arithmetic) |
+| `examples/hello.wat` | Pure compute module (i32.add arithmetic) |
+| `examples/hello-wasi.wat` | WASI test: fd_write to stdout |
+| `examples/args-wasi.wat` | WASI test: read and print args |
+| `examples/clock-wasi.wat` | WASI test: monotonic clock ordering |
 
 ## Wasmtime version
 

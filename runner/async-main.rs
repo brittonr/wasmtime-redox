@@ -1,6 +1,6 @@
 //! Async/fiber test runner for wasmtime on Redox OS.
 //!
-//! Exercises wasmtime's fiber-based async support without tokio.
+//! Exercises wasmtime's fiber-based async support with optional WASI.
 //! Uses a manual executor (poll loop) since Redox doesn't need tokio.
 //!
 //! Usage:
@@ -8,8 +8,14 @@
 
 use wasmtime::*;
 
+#[path = "wasi/mod.rs"]
+mod wasi;
+
 fn main() {
     if let Err(e) = run() {
+        if let Some(code) = wasi::wasi_exit_code(&e) {
+            std::process::exit(code);
+        }
         // Print errors to STDOUT so ion shell captures them
         println!("ERROR: {e:?}");
         std::process::exit(1);
@@ -24,16 +30,28 @@ fn run() -> Result<()> {
     }
 
     let file = &args[1];
-    let func_name = args.get(2).map(|s| s.as_str()).unwrap_or("_start");
-    let func_args: Vec<i32> = args[3..].iter().filter_map(|a| a.parse().ok()).collect();
+    let no_wasi = args.iter().any(|a| a == "--no-wasi");
+    // Filter out --no-wasi before parsing positional args
+    let positional: Vec<&String> = args[2..].iter().filter(|a| a.as_str() != "--no-wasi").collect();
+    let func_name = positional.first().map(|s| s.as_str()).unwrap_or("_start");
+    let func_args: Vec<i32> = positional[1..].iter().filter_map(|a| a.parse().ok()).collect();
 
     let engine = Engine::default();
     let module = Module::from_file(&engine, file)?;
 
-    let mut store = Store::new(&engine, ());
+    // Set up WASI context
+    let mut ctx = wasi::WasiCtx::new();
+    ctx.args = std::env::args().collect();
+
+    let mut store = Store::new(&engine, ctx);
+
+    let mut linker = Linker::new(&engine);
+    if !no_wasi {
+        wasi::add_wasi_to_linker(&mut linker)?;
+    }
 
     // Async instantiation — exercises fiber context switching
-    let instance = block_on(Instance::new_async(&mut store, &module, &[]))?;
+    let instance = block_on(linker.instantiate_async(&mut store, &module))?;
 
     match func_args.len() {
         0 => {

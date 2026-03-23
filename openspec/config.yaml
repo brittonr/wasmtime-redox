@@ -1,0 +1,25 @@
+project:
+  name: wasmtime-redox
+  description: Wasmtime WebAssembly runtime cross-compiled for Redox OS
+  language: rust
+  schema: spec-driven
+
+domains:
+  - runtime
+  - platform
+  - wasi
+
+context: |
+  Wasmtime v43.0.0 cross-compiled for Redox OS via Nix.
+  Uses Pulley interpreter + native x86_64 (libcall traps, no signal handlers).
+  Custom platform API in C (mmap/tls) linked via relibc.
+  No tokio — manual poll loop for async fibers.
+  Runners are minimal binaries injected into wasmtime-cli crate at build time.
+
+rules:
+  proposal:
+    - Reference upstream wasmtime crate structure
+    - Call out relibc compatibility gaps explicitly
+  tasks:
+    - Each task should be testable on Redox independently
+    - Keep phases ordered by dependency
