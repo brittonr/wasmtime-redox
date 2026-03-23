@@ -43,11 +43,18 @@ registration is needed.
 - Runtime module loading and execution via Pulley interpreter
 - 15 MB statically linked binary, 33s build
 
-## What doesn't (yet)
+## What's not built (but could work)
 
-- `wasmtime run` — requires WASI + tokio (not ported to Redox)
-- Native JIT execution — requires `ucontext_t` / kernel signal context support
-- Async/fiber support — requires mmap'd stack switching
+- **`wasmtime run`** — the upstream `run` feature bundles tokio + WASI as
+  compile-time deps, so it's excluded from the build. A minimal run command
+  for non-WASI modules is feasible since `wasmtime/runtime` is enabled.
+- **Cranelift native x86_64 execution** — wasmtime v43 has a complete
+  non-signal codepath (libcall traps, assembly unwinding, software stack
+  checks) that activates when `has_native_signals = false`. Should work on
+  Redox but is untested. The current build targets Pulley by convention.
+- **Async/fiber support** — Redox has mmap via relibc, and the fiber crate's
+  x86_64 context switching is pure inline assembly (OS-agnostic). The `async`
+  feature just isn't enabled in the build.
 
 ## Usage from the Redox flake
 
