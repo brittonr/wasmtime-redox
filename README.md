@@ -40,7 +40,7 @@ registration is needed.
 ```nix
 # flake.nix inputs
 wasmtime-redox = {
-  url = "github:user/wasmtime-redox";  # or path
+  url = "github:brittonr/wasmtime-redox";
   flake = true;
 };
 
