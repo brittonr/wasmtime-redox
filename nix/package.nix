@@ -1,25 +1,39 @@
-# Returns a function: args -> derivation
+# Returns a function: standaloneCommon -> derivation
 #
 # Called from the redox flake as:
-#   inputs.wasmtime-redox.lib.mkWasmtime {
-#     inherit mkUserspace pkgs lib redoxTarget relibc;
-#   }
+#   inputs.wasmtime-redox.lib.mkWasmtime standaloneCommon
 #
-# mkUserspace is the redox cross-compilation builder (from mk-userspace.nix).
-# The caller constructs it and passes it in — no circular dependency.
+# standaloneCommon contains: pkgs, lib, rustToolchain, sysrootVendor,
+# redoxTarget, relibc, stubLibs, vendor (and possibly others via ...).
 
 { wasmtime-src, selfSrc }:
 
 {
-  mkUserspace,
   pkgs,
   lib,
+  rustToolchain,
+  sysrootVendor,
   redoxTarget,
   relibc,
+  stubLibs,
+  vendor,
   ...
 }:
 
 let
+  mkUserspace = import ./mk-userspace.nix {
+    inherit
+      pkgs
+      lib
+      rustToolchain
+      sysrootVendor
+      redoxTarget
+      relibc
+      stubLibs
+      vendor
+      ;
+  };
+
   redoxPlatformPatch = "${selfSrc}/patches/0001-redox-custom-platform.patch";
   platformC = "${selfSrc}/platform/wasmtime-platform-redox.c";
 
