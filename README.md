@@ -43,18 +43,31 @@ registration is needed.
 - Runtime module loading and execution via Pulley interpreter
 - 15 MB statically linked binary, 33s build
 
-## What's not built (but could work)
+## Tested on Redox
 
-- **`wasmtime run`** — the upstream `run` feature bundles tokio + WASI as
-  compile-time deps, so it's excluded from the build. A minimal run command
-  for non-WASI modules is feasible since `wasmtime/runtime` is enabled.
-- **Cranelift native x86_64 execution** — wasmtime v43 has a complete
-  non-signal codepath (libcall traps, assembly unwinding, software stack
-  checks) that activates when `has_native_signals = false`. Should work on
-  Redox but is untested. The current build targets Pulley by convention.
-- **Async/fiber support** — Redox has mmap via relibc, and the fiber crate's
-  x86_64 context switching is pure inline assembly (OS-agnostic). The `async`
-  feature just isn't enabled in the build.
+All three execution paths are tested in a Redox VM via `wasm-runner` and
+`wasm-async-runner` (minimal binaries injected into the wasmtime build):
+
+| Capability | Status | Notes |
+|------------|--------|-------|
+| Pulley compilation | ✅ | `wasmtime compile --target pulley64` |
+| Native x86_64 compilation | ✅ | `wasmtime compile` (default target) |
+| Native execution (libcall traps) | ✅ | `wasm-runner` loads .wat, Engine::default() compiles to x86_64 |
+| Linear memory (mmap platform) | ✅ | store/load across page boundaries |
+| Control flow (loops, branches) | ✅ | GCD computation with `--invoke` |
+| Async/fiber function calls | ✅ | `wasm-async-runner` with typed args, fiber context switching |
+| Precompiled cwasm roundtrip | ❌ | Engine tunable mismatch between CLI and API |
+| Async void calls | ❌ | `()→()` fiber calls crash; typed calls work |
+
+On x86_64 Redox, `Engine::default()` compiles to **native x86_64** via
+Cranelift (not Pulley) because `has_host_compiler_backend = true`. Traps use
+the libcall path (`has_native_signals = false`) — no `ucontext_t` or signal
+handlers needed.
+
+## Not built
+
+- **`wasmtime run` CLI** — the upstream `run` feature bundles tokio + WASI as
+  compile-time deps. A minimal runner (`wasm-runner`) is provided instead.
 
 ## Usage from the Redox flake
 

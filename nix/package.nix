@@ -36,6 +36,8 @@ let
 
   redoxPlatformPatch = "${selfSrc}/patches/0001-redox-custom-platform.patch";
   platformC = "${selfSrc}/platform/wasmtime-platform-redox.c";
+  runnerSrc = "${selfSrc}/runner/main.rs";
+  asyncRunnerSrc = "${selfSrc}/runner/async-main.rs";
 
   wasmtimePlatformLib = pkgs.stdenv.mkDerivation {
     pname = "wasmtime-platform-redox-lib";
@@ -59,11 +61,10 @@ let
   };
 
 in
-mkUserspace.mkBinary {
+mkUserspace.mkPackage {
   pname = "wasmtime";
   version = "43.0.0";
   src = wasmtime-src;
-  binaryName = "wasmtime";
 
   vendorHash = "sha256-WJz7J9FHGRqni889o2omkC1K+rwZ8iM6SarT1nd1p0Q=";
 
@@ -72,6 +73,10 @@ mkUserspace.mkBinary {
     "-F compile,cranelift,pulley,wat,logging"
     "-F wasmtime/custom-virtual-memory"
     "-F wasmtime/runtime"
+    "-F wasmtime/async"
+    "--bin wasmtime"
+    "--bin wasm-runner"
+    "--bin wasm-async-runner"
   ];
 
   preConfigure = ''
@@ -79,6 +84,24 @@ mkUserspace.mkBinary {
   '';
 
   postConfigure = ''
+    # Inject runner binaries into the wasmtime-cli crate
+    cp ${runnerSrc} src/bin/wasm-runner.rs
+    cp ${asyncRunnerSrc} src/bin/wasm-async-runner.rs
+
+    cat >> Cargo.toml << 'EXTRA_BINS'
+
+[[bin]]
+name = "wasm-runner"
+path = "src/bin/wasm-runner.rs"
+doc = false
+
+[[bin]]
+name = "wasm-async-runner"
+path = "src/bin/wasm-async-runner.rs"
+doc = false
+EXTRA_BINS
+
+    # Link the custom platform library
     cat >> crates/wasmtime/build.rs << 'BUILD_RS_APPEND'
 
 // Added by wasmtime-redox: link the custom platform library
@@ -99,8 +122,20 @@ BUILD_RS_APPEND
     export WASMTIME_PLATFORM_LIB_DIR="${wasmtimePlatformLib}/lib"
   '';
 
+  installPhase = ''
+    runHook preInstall
+    mkdir -p $out/bin $out/share/wasm
+    cp target/${redoxTarget}/release/wasmtime $out/bin/
+    cp target/${redoxTarget}/release/wasm-runner $out/bin/
+    cp target/${redoxTarget}/release/wasm-async-runner $out/bin/
+
+    # Install test WAT files for on-device testing
+    cp ${selfSrc}/examples/*.wat $out/share/wasm/
+    runHook postInstall
+  '';
+
   meta = with lib; {
-    description = "WebAssembly runtime for Redox OS (Pulley interpreter)";
+    description = "WebAssembly runtime for Redox OS (Pulley interpreter + native x86_64)";
     homepage = "https://wasmtime.dev";
     license = licenses.asl20;
     mainProgram = "wasmtime";
