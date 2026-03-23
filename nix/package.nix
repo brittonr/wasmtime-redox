@@ -132,8 +132,9 @@ BUILD_RS_APPEND
     cp target/${redoxTarget}/release/wasm-runner $out/bin/
     cp target/${redoxTarget}/release/wasm-async-runner $out/bin/
 
-    # Install test WAT files for on-device testing
+    # Install test modules for on-device testing
     cp ${selfSrc}/examples/*.wat $out/share/wasm/
+    cp ${selfSrc}/examples/*.wasm $out/share/wasm/
     runHook postInstall
   '';
 
